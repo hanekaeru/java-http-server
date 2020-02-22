@@ -9,11 +9,11 @@ Il est inspiré de codes déjà existants comme :
 
 ## Démarrage du serveur
 
-## - Sous Windows 💻 :
+### - Sous Windows 💻 :
 
 Pour démarrer le serveur, plusieurs choix s'offrent à vous :
 
-### __Avec le Script mais avec Terminal :__
+### __Avec le Script et avec Terminal :__
 
 - Ouvrez votre Powershell ou votre Invite de Commandes.
 - Allez jusqu'au répertoire du projet.
@@ -40,3 +40,22 @@ java Serveur <port>
 
 ## - Sous Linux 🐧 :
 
+### __Avec le Script et avec Terminal :__
+
+- Ouvrez votre Terminal.
+- Allez jusqu'au répertoire du projet.
+- Entrez la commande `sh start.sh`. Vous n'avez pas besoin de droit particulier, **lors des tests, aucune utilisation de la commande `sudo` n'a été requise.**
+- Une fois ceci fait, vous n'avez qu'à entrer, dans la fenêtre de commande, le port sur lequel vous souhaitez lancer votre serveur.
+- Maintenant que votre serveur est lancé, vous n'avez qu'à vous rendre ici : `http://localhost:<port>`
+
+### __Uniquement avec le Terminal :__
+
+Si vous souhaitez utiliser uniquement les commandes du Powershell ou du CMD, vous pouvez entrer les commandes suivantes :
+```bash
+# Compiler le fichier Serveur.java
+javac Serveur.java
+# Lancer le serveur
+java Serveur <port>
+
+# Pour entrer le port, vous devez retirer les <> !
+```
