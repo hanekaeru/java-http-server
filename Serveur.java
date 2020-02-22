@@ -58,27 +58,18 @@ public class Serveur{
      * @throws IOException
      */
     public void traiterRequete(BufferedReader br) throws IOException {
-        String requestLine;
-        while(true) {
-            requestLine = br.readLine();
-            // Informations de débug
-            String[] lignes = requestLine.split(" ");
-            String param = lignes[0];
-            String requestedFile = lignes[1].toString().substring(1, lignes[1].length());
-            System.out.println("Request : " + requestLine);
-            System.out.println("Method (GET/POST) : " + param);
-            System.out.println("Route : " + lignes[1]);
-            System.out.println("File to display : " + requestedFile);
-
+        int i = 0;
+        String requestLine = br.readLine();
+        if(requestLine != null) {
             // Si la requête est en GET alors on appelle notre méthode GET qui va gérer l'affichage de la page.
-            if(param.equals("GET")) {
-                initGETrequest(requestedFile);
+            if(requestLine.startsWith("GET")) {
+                initGETrequest(requestLine.substring(5, requestLine.length()-9));
             }
             // Si la méthode est en POST alors on appelle notre méthode POST qui va gérer les données envoyées en POST.
-            if(param.equals("POST")) {
-                initPOSTrequest(requestedFile);
+            if(requestLine.startsWith("POST")) {
+                initPOSTrequest(requestLine.substring(6, requestLine.length()-9));
             }
-        }
+        } else { }
     }
 
     /**
@@ -98,9 +89,7 @@ public class Serveur{
             // On établie notre status de retour à 200 (succès).
             statusHeaderRequest = "HTTP/1.1 200 OK";
             // Si le fichier se termine .html ou bien .htm (comme demandé dans le code source du TP3 sur Moodle)
-            String[] fileExtension = f.split(".");
-            if (fileExtension[1].equals("html") || fileExtension[1].equals("htm")) {
-                // Nous avons précisé plus haut que le plus présent des Content-Type serait le text/html
+            if (f.endsWith(".html")) {
                 contentTypeRequest = "Content-Type: text/html";
             }
             // Longueur du contenu
@@ -126,57 +115,14 @@ public class Serveur{
         }
     }
 
-    /**
-     * 
-     * @param f String : Fichier qui doit être affiché sur notre page web.
-     * @throws IOException
-     */
     private void initPOSTrequest(String f) throws IOException {
-        String S = "";
-        int length = 0;
-        char[] params;
-        while(true) {
-            S = br.readLine();
-            if(S.startsWith("Content-Length: ")) {
-                length = Integer.parseInt(S.substring(16));
-            }
-            if(S.equals("")){
-                params = new char[length];
-                br.read(params, 0, length);
-                break;
-            }
-        }
-        System.out.println(f);
-        System.out.println(length);
-        System.out.println(params);
-        File file = new File(f);
-        if(file.exists()){
-            statusHeaderRequest = "HTTP/1.1 200 OK";
-            String[] fileExtension = f.split(".");
-            if (fileExtension[1].equals("html") || fileExtension[1].equals("htm")) {
-                contentTypeRequest = "Content-Type: text/html";
-            }
-            contentLengthRequest ="Content-Length: " + Long.toString(file.length()+length);
-            entete();
-            contentRequest = new String(params);
-            envoi(contentRequest);
-            FileInputStream fis = new FileInputStream(file);
-            envoiFichier(fis, dos);
-            fis.close();
-        } else {
-            contentRequest = "File not Found" + "\r\n";
-            statusHeaderRequest = "HTTP/1.1 404 Not Found";
-            contentTypeRequest = "Content-Type: text/html";
-            contentLengthRequest ="Content-Length: " + Long.toString(contentRequest.length());
-            entete();
-            envoi(contentRequest);
-        }
+        System.out.println("POST");
     }
 
     private void envoiFichier(FileInputStream fis, OutputStream os) throws IOException
     {
-        byte[] buffer = new byte[1024] ;
-        int bytes = 0 ;
+        byte[] buffer = new byte[1024];
+        int bytes = 0;
         while ((bytes = fis.read(buffer)) != -1 ) {
             os.write(buffer, 0, bytes);
         }
@@ -186,12 +132,12 @@ public class Serveur{
     
 
     private void envoi(String m) throws IOException {
-        System.out.print("ENVOI :" + m);
+        System.out.print("[Logs] " + m);
         dos.write(m.getBytes());
     }
 
     /**
-     * Méthode qui va permettre de consituer notre entête.
+     * Méthode qui va permettre de consituer notre
      * @throws IOException
      */
     private void entete() throws IOException {
