@@ -1,5 +1,4 @@
 import java.net.*;
-import java.util.Arrays;
 import java.io.*;
 
 /**
@@ -58,7 +57,6 @@ public class Serveur{
      * @throws IOException
      */
     public void traiterRequete(BufferedReader br) throws IOException {
-        int i = 0;
         String requestLine = br.readLine();
         if(requestLine != null) {
             // Si la requête est en GET alors on appelle notre méthode GET qui va gérer l'affichage de la page.
@@ -89,7 +87,7 @@ public class Serveur{
             // On établie notre status de retour à 200 (succès).
             statusHeaderRequest = "HTTP/1.1 200 OK";
             // Si le fichier se termine .html ou bien .htm (comme demandé dans le code source du TP3 sur Moodle)
-            if (f.endsWith(".html")) {
+            if (f.endsWith(".html") || f.endsWith(".htm")) {
                 contentTypeRequest = "Content-Type: text/html";
             }
             // Longueur du contenu
@@ -115,10 +113,83 @@ public class Serveur{
         }
     }
 
+    /**
+     * Méthode qui est similaire à la méthode précédente mais qui permet la gestion des données en POST.
+     * @param f : String
+     * @throws IOException
+     */
     private void initPOSTrequest(String f) throws IOException {
-        System.out.println("POST");
+        // Création d'une chaîne de caractères qui contiendre les informations.
+        String S = "";
+        // Longueur du content de notre requête qui va être update en fonction des différents paramètres qu'on enverra.
+        int length = 0;
+        // Tableau qui contiendra tout les paramètres et valeurs en POST.
+        char[] params;
+        while(true) {
+            // On affecte à notre S la valeur de notre BufferedReader
+            S = br.readLine();
+            if(S.startsWith("Content-Length: ")) {
+                // On donne une valeur à notre variable length grâce aux informations.
+                length = Integer.parseInt(S.substring(16));
+            }
+            if(S.equals("")){
+                params = new char[length];
+                br.read(params, 0, length);
+                break;
+            }
+        }
+        // Affichage des valeurs dans différents tableau de String.
+        // String values = new String(params);
+        // String[] fullValues = values.split("&");
+        // System.out.println(fullValues);
+        
+        // String content = "Votre nom est " + nameValues[1].toString() + " et vous avez choisi le développeur " + devValues[1].toString();
+        
+        // Affichage de debug de nos valeurs POST
+        System.out.println(params);
+        // On créer une variable file qui va concerner le fichier que nous avons envoyé en paramètre.
+        File file = new File(f);
+        // Si le fichier existe
+        if(file.exists()){
+            // On établie notre status de retour à 200 (succès).
+            statusHeaderRequest = "HTTP/1.1 200 OK";
+            // Si le fichier se termine .html ou bien .htm (comme demandé dans le code source du TP3 sur Moodle)
+            if (f.endsWith(".html") || f.endsWith(".htm")) {
+                contentTypeRequest = "Content-Type: text/html";
+            }
+            // Longueur du contenu
+            contentLengthRequest ="Content-Length: " + Long.toString(file.length()+length);
+            // On forme notre entête (header) avec les informations que nous avons récupéré auparavant.
+            entete();
+            // Ce que nous allons afficher sur notre page WEB.
+            contentRequest = new String(params);
+            // On envoie le contenu de notre requête.
+            envoi(contentRequest);
+            // On récupère le contenu de notre fichier file de tout à l'heure ...
+            FileInputStream fis = new FileInputStream(file);
+            // ... et on envoie le tout.
+            envoiFichier(fis, dos);
+            // On ferme le FileInputStream car nous n'avons plus besoin.
+            fis.close();
+        // Si le fichier n'existe pas.
+        } else {
+            // On envoie une simple entête précisant que le fichier n'a pas été trouvé et on en informe l'utilisateur.
+            // Le code utilisé ci-dessous et utilisé de la même façon que ci-dessus.
+            contentRequest = "File not Found" + "\r\n";
+            statusHeaderRequest = "HTTP/1.1 404 Not Found";
+            contentTypeRequest = "Content-Type: text/html";
+            contentLengthRequest ="Content-Length: " + Long.toString(contentRequest.length());
+            entete();
+            envoi(contentRequest);
+        }
     }
 
+    /**
+     * 
+     * @param fis : FileInputStream
+     * @param os : OutputStream
+     * @throws IOException
+     */
     private void envoiFichier(FileInputStream fis, OutputStream os) throws IOException
     {
         byte[] buffer = new byte[1024];
@@ -129,10 +200,12 @@ public class Serveur{
         envoi("\r\n");
     }
 
-    
-
+    /**
+     * @param m : String
+     * @throws IOException
+     */
     private void envoi(String m) throws IOException {
-        System.out.print("[Logs] " + m);
+        // System.out.print("[Logs] " + m);
         dos.write(m.getBytes());
     }
 
