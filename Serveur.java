@@ -1,4 +1,6 @@
 import java.net.*;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.io.*;
 
 /**
@@ -8,17 +10,17 @@ import java.io.*;
 
 public class Serveur{
     // Variables générales liées au serveur et aux sockets.
-    ServerSocket srvk;
-    DataOutputStream dos = null;
-    BufferedReader br = null;
-    Socket sck = null;
+    static ServerSocket srvk;
+    static DataOutputStream dos = null;
+    static BufferedReader br = null;
+    static Socket sck = null;
 
     // Éléments qui vont nous servir a établir une entête clair et complet.
-    String descServer = "Server: Simple Serveur de TP ULR";
-    String statusHeaderRequest = null;      // StatusCode de l'entête (par ex: 404 si erreur ou 200 si succès)
-    String contentTypeRequest = null;       // Type de contenu (le plus souvent : text/html)
-    String contentRequest = null;           // Contenu de la requête
-    String contentLengthRequest = null;     // Longueur de la rêquete
+    static String descServer = "Server: Simple Serveur de TP ULR";
+    static String statusHeaderRequest = null;      // StatusCode de l'entête (par ex: 404 si erreur ou 200 si succès)
+    static String contentTypeRequest = null;       // Type de contenu (le plus souvent : text/html)
+    static String contentRequest = null;           // Contenu de la requête
+    static String contentLengthRequest = null;     // Longueur de la rêquete
 
     /**
      * Constructeur de notre classe Serveur
@@ -31,22 +33,29 @@ public class Serveur{
 
     /**
      * Méthode qui va permettre de lancer le serveur local. Il tournera en continu sauf en cas d'erreur I/O. Il y a fermetture
-     * du socket après chaque requête.
+     * du socket après chaque requête. En parallèle de cela, elle va permettre de gérer les sockets et les threads en fonction
+     * des requêtes qui sont envoyées.
      */
     public void go (){
-        while (true){
+        LinkedBlockingQueue<Socket> socketQueue = new LinkedBlockingQueue<>();
+        int threads = 4;
+        for(int i = 0; i < threads; i++){
+            new GestionSocket(socketQueue).start();
+        }
+        while(true) {
             try {
                 sck = srvk.accept();
+                socketQueue.put(sck);
                 dos = new DataOutputStream(sck.getOutputStream());
                 br = new BufferedReader(new InputStreamReader(sck.getInputStream()));
-                traiterRequete(br);
-                sck.close();
             } catch (IOException e) { 
                 System.out.println("[!]I/O Error : "+ e);
+            } catch (Exception e) { 
+                System.out.println("Exception "+ e);
             }
         }
     }
-
+ 
     /**
      * Cette méthode va traiter les requêtes associées au br envoyé en paramètre et va s'occuper de savoir si c'est
      * une requête GET ou bien une requête POST.
@@ -56,7 +65,7 @@ public class Serveur{
      * @param br BufferedReader
      * @throws IOException
      */
-    public void traiterRequete(BufferedReader br) throws IOException {
+    public static void traiterRequete(BufferedReader br) throws IOException {
         String requestLine = br.readLine();
         if(requestLine != null) {
             // Si la requête est en GET alors on appelle notre méthode GET qui va gérer l'affichage de la page.
@@ -79,7 +88,7 @@ public class Serveur{
      * @param f String : Fichier qui doit être affiché sur notre page web.
      * @throws IOException
      */
-    private void initGETrequest(String f) throws IOException {
+    private static void initGETrequest(String f) throws IOException {
         // On créer une variable file qui va concerner le fichier que nous avons envoyé en paramètre.
         File file = new File(f);
         // Si ce fichier existe alors ...
@@ -118,7 +127,7 @@ public class Serveur{
      * @param f : String
      * @throws IOException
      */
-    private void initPOSTrequest(String f) throws IOException {
+    private static void initPOSTrequest(String f) throws IOException {
         // Création d'une chaîne de caractères qui contiendre les informations.
         String S = "";
         // Longueur du content de notre requête qui va être update en fonction des différents paramètres qu'on enverra.
@@ -190,7 +199,7 @@ public class Serveur{
      * @param os : OutputStream
      * @throws IOException
      */
-    private void envoiFichier(FileInputStream fis, OutputStream os) throws IOException
+    private static void envoiFichier(FileInputStream fis, OutputStream os) throws IOException
     {
         byte[] buffer = new byte[1024];
         int bytes = 0;
@@ -201,19 +210,20 @@ public class Serveur{
     }
 
     /**
+     * Méthode qui va permettre l'envoi de notre requête.
      * @param m : String
      * @throws IOException
      */
-    private void envoi(String m) throws IOException {
+    private static void envoi(String m) throws IOException {
         // System.out.print("[Logs] " + m);
         dos.write(m.getBytes());
     }
 
     /**
-     * Méthode qui va permettre de consituer notre
+     * Méthode qui va permettre de consituer notre en-tête lors de l'envoi du fichier.
      * @throws IOException
      */
-    private void entete() throws IOException {
+    private static void entete() throws IOException {
         envoi(statusHeaderRequest+"\r\n");
         envoi(descServer+"\r\n");
         envoi(contentTypeRequest+"\r\n");
@@ -231,4 +241,45 @@ public class Serveur{
         s.go();
         System.out.println("[!]Server stopped.");
     }
-}   
+} 
+
+/**
+ * Classe qui va permettre que dès qu'une requête est envoyée par un client, notre programme va directement
+ * créer un thread qui va lui être dédié. Une fois que la requête est traitée, le thread sera fermé.
+ */
+class GestionSocket extends Thread {
+    private Socket socket;
+    private DataOutputStream dos;
+    private int nbClients = 0;
+    private LinkedBlockingQueue<Socket> socketQueue;
+    BufferedReader br = null;
+
+    /**
+     * Constructeur de la classe GestionSocket.
+     * @param socketQueue : LinkedBlockingQueue<Socket>
+     */
+    public GestionSocket(LinkedBlockingQueue<Socket> socketQueue) {
+        this.socketQueue = socketQueue;
+    }
+
+    /**
+     * Méthode qui va permettre de traiter de la requête et qui va s'occuper de l'aspect extérieur des threads et qui va
+     * notamment créé les différents éléments nécessaires au bon fonctionnement de la fonction traiterRequete().
+     */
+    public void run() {
+        try {
+            while(true) {
+                while((this.socket = socketQueue.poll(500, TimeUnit.MILLISECONDS)) == null);
+                this.dos = new DataOutputStream(this.socket.getOutputStream());
+                this.br = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
+                System.out.println("New client connected. There are "+ this.nbClients + " clients on the server.");
+                this.nbClients++;
+                Serveur.traiterRequete(this.br); 
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
